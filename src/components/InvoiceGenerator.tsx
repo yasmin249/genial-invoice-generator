@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +97,7 @@ const InvoiceGenerator = () => {
 
   const calculateTax = () => {
     const total = calculateTotal();
-    const isSameState = sellerDetails.state === buyerDetails.state;
+    const isSameState = sellerDetails.state.toLowerCase() === buyerDetails.state.toLowerCase();
     
     if (isSameState) {
       const cgst = Math.round(total * 0.09);
@@ -111,109 +110,167 @@ const InvoiceGenerator = () => {
   };
 
   const generatePDF = () => {
-    if (!invoiceNumber || !buyerDetails.name) {
-      toast.error('Please fill in invoice number and buyer details');
-      return;
+    try {
+      if (!invoiceNumber || !buyerDetails.name) {
+        toast.error('Please fill in invoice number and buyer details');
+        return;
+      }
+
+      console.log('Starting PDF generation...');
+      
+      const doc = new jsPDF();
+      const tax = calculateTax();
+      const subtotal = calculateTotal();
+      const grandTotal = subtotal + tax.total;
+
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(41, 98, 255);
+      doc.text('TAX INVOICE', 105, 20, { align: 'center' });
+      
+      doc.setFontSize(16);
+      doc.setTextColor(41, 98, 255);
+      doc.text(sellerDetails.name, 20, 35);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(sellerDetails.address, 20, 42);
+      doc.text(`GSTIN: ${sellerDetails.gstin}`, 20, 48);
+
+      // Invoice details box
+      doc.rect(140, 25, 65, 35);
+      doc.text(`Invoice No.: ${invoiceNumber}`, 142, 32);
+      doc.text(`State: ${sellerDetails.state}`, 142, 38);
+      doc.text(`Code: ${sellerDetails.stateCode}`, 142, 44);
+      doc.text(`Date: ${invoiceDate}`, 142, 50);
+      doc.text('Vehicle No.: ', 142, 56);
+
+      // GST details box
+      doc.rect(140, 65, 65, 20);
+      doc.text(`GST No.: ${buyerDetails.gstin}`, 142, 72);
+      doc.text(`STATE: ${buyerDetails.state.toUpperCase()}`, 142, 78);
+      doc.text(`CODE: ${buyerDetails.stateCode}`, 142, 84);
+
+      // Buyer details
+      doc.text('Details of Receiver Billed to:', 20, 70);
+      doc.text(`Name: ${buyerDetails.name}`, 20, 77);
+      doc.text(`Address: ${buyerDetails.address}`, 20, 84);
+      doc.text(`GSTIN: ${buyerDetails.gstin}`, 20, 91);
+      doc.text(`STATE: ${buyerDetails.state.toUpperCase()}    STATE CODE: ${buyerDetails.stateCode}`, 20, 98);
+
+      // Table
+      const tableData = items.map((item, index) => [
+        index + 1,
+        item.particulars,
+        item.hsn,
+        item.quantity,
+        item.rate,
+        item.amount.toFixed(2)
+      ]);
+
+      doc.autoTable({
+        startY: 110,
+        head: [['Sr. no.', 'Particulars', 'HSN', 'Qty', 'Rate', 'Amount']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [240, 240, 240] }
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY || 150;
+
+      // Tax calculations
+      doc.text(`Total GST Amount: ${subtotal.toFixed(2)}`, 20, finalY + 10);
+      doc.text(`Invoice Value Rs.: ${subtotal.toFixed(2)}`, 20, finalY + 17);
+
+      if (tax.cgst > 0) {
+        doc.text(`CGST 9%: ${tax.cgst.toFixed(2)}`, 140, finalY + 10);
+        doc.text(`SGST 9%: ${tax.sgst.toFixed(2)}`, 140, finalY + 17);
+      } else {
+        doc.text(`IGST 18%: ${tax.igst.toFixed(2)}`, 140, finalY + 10);
+      }
+
+      doc.text(`Round Off: 0.00`, 140, finalY + 24);
+      doc.text(`TOTAL: ${grandTotal.toFixed(2)}`, 140, finalY + 31);
+
+      // Footer notes
+      doc.text('N.B.: Goods once sold will not be taken back.', 20, finalY + 40);
+      doc.text('Received the above-mentioned goods in good order &', 20, finalY + 47);
+      doc.text('condition.', 20, finalY + 54);
+
+      doc.text(`For, ${sellerDetails.name}`, 140, finalY + 60);
+      doc.text("Receiver's Signature", 20, finalY + 70);
+
+      console.log('PDF generated successfully');
+      doc.save(`Invoice-${invoiceNumber}.pdf`);
+      toast.success('PDF generated successfully!');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF. Check console for details.');
     }
-
-    const doc = new jsPDF();
-    const tax = calculateTax();
-    const subtotal = calculateTotal();
-    const grandTotal = subtotal + tax.total;
-
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(41, 98, 255);
-    doc.text('TAX INVOICE', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(16);
-    doc.setTextColor(41, 98, 255);
-    doc.text(sellerDetails.name, 20, 35);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(sellerDetails.address, 20, 42);
-    doc.text(`GSTIN: ${sellerDetails.gstin}`, 20, 48);
-
-    // Invoice details box
-    doc.rect(140, 25, 65, 35);
-    doc.text(`Invoice No.: ${invoiceNumber}`, 142, 32);
-    doc.text(`State: ${sellerDetails.state}`, 142, 38);
-    doc.text(`Code: ${sellerDetails.stateCode}`, 142, 44);
-    doc.text(`Date: ${invoiceDate}`, 142, 50);
-    doc.text('Vehicle No.: ', 142, 56);
-
-    // GST details box
-    doc.rect(140, 65, 65, 20);
-    doc.text(`GST No.: ${buyerDetails.gstin}`, 142, 72);
-    doc.text(`STATE: ${buyerDetails.state}`, 142, 78);
-    doc.text(`CODE: ${buyerDetails.stateCode}`, 142, 84);
-
-    // Buyer details
-    doc.text('Details of Receiver Billed to:', 20, 70);
-    doc.text(`Name: ${buyerDetails.name}`, 20, 77);
-    doc.text(`Address: ${buyerDetails.address}`, 20, 84);
-    doc.text(`GSTIN: ${buyerDetails.gstin}`, 20, 91);
-    doc.text(`STATE: ${buyerDetails.state}    STATE CODE: ${buyerDetails.stateCode}`, 20, 98);
-
-    // Table
-    const tableData = items.map((item, index) => [
-      index + 1,
-      item.particulars,
-      item.hsn,
-      item.quantity,
-      item.rate,
-      item.amount.toFixed(2)
-    ]);
-
-    doc.autoTable({
-      startY: 110,
-      head: [['Sr. no.', 'Particulars', 'HSN', 'Qty', 'Rate', 'Amount']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [240, 240, 240] }
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY || 150;
-
-    // Tax calculations
-    doc.text(`Total GST Amount: ${subtotal.toFixed(2)}`, 20, finalY + 10);
-    doc.text(`Invoice Value Rs.: ${subtotal.toFixed(2)}`, 20, finalY + 17);
-
-    if (tax.cgst > 0) {
-      doc.text(`CGST %: ${tax.cgst.toFixed(2)}`, 140, finalY + 10);
-      doc.text(`SGST %: ${tax.sgst.toFixed(2)}`, 140, finalY + 17);
-    } else {
-      doc.text(`IGST %: ${tax.igst.toFixed(2)}`, 140, finalY + 10);
-    }
-
-    doc.text(`Round Off: 0.00`, 140, finalY + 24);
-    doc.text(`TOTAL: ${grandTotal.toFixed(2)}`, 140, finalY + 31);
-
-    // Footer notes
-    doc.text('N.B.: Goods once sold will not be taken back.', 20, finalY + 40);
-    doc.text('Received the above-mentioned goods in good order &', 20, finalY + 47);
-    doc.text('condition.', 20, finalY + 54);
-
-    doc.text(`For, ${sellerDetails.name}`, 140, finalY + 60);
-    doc.text("Receiver's Signature", 20, finalY + 70);
-
-    doc.save(`Invoice-${invoiceNumber}.pdf`);
-    toast.success('PDF generated successfully!');
   };
 
   const saveToGoogleSheets = async () => {
-    if (!googleSheetsUrl) {
-      toast.error('Please provide Google Sheets URL');
+    if (!googleSheetsUrl || !driveApiKey) {
+      toast.error('Please provide Google Sheets URL and API Key');
       return;
     }
 
     try {
-      // This would require actual Google Sheets API implementation
-      toast.success('Data saved to Google Sheets (simulation)');
-      console.log('Invoice data:', { invoiceNumber, buyerDetails, items, total: calculateTotal() });
+      console.log('Attempting to save to Google Sheets...');
+      
+      // Extract spreadsheet ID from URL
+      const urlMatch = googleSheetsUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (!urlMatch) {
+        toast.error('Invalid Google Sheets URL format');
+        return;
+      }
+      
+      const spreadsheetId = urlMatch[1];
+      const tax = calculateTax();
+      const total = calculateTotal() + tax.total;
+      
+      // Prepare data for Google Sheets
+      const rowData = [
+        invoiceNumber,
+        invoiceDate,
+        buyerDetails.name,
+        buyerDetails.address,
+        buyerDetails.gstin,
+        buyerDetails.state,
+        buyerDetails.stateCode,
+        JSON.stringify(items), // Store items as JSON string
+        calculateTotal().toFixed(2),
+        tax.cgst.toFixed(2),
+        tax.sgst.toFixed(2),
+        tax.igst.toFixed(2),
+        total.toFixed(2)
+      ];
+
+      // Google Sheets API call
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1:append?valueInputOption=RAW&key=${driveApiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            values: [rowData]
+          })
+        }
+      );
+
+      if (response.ok) {
+        console.log('Successfully saved to Google Sheets');
+        toast.success('Data saved to Google Sheets successfully!');
+      } else {
+        const errorData = await response.text();
+        console.error('Google Sheets API error:', errorData);
+        toast.error('Failed to save to Google Sheets. Check API key and permissions.');
+      }
     } catch (error) {
-      toast.error('Failed to save to Google Sheets');
+      console.error('Google Sheets save error:', error);
+      toast.error('Failed to save to Google Sheets. Check console for details.');
     }
   };
 
@@ -342,7 +399,7 @@ const InvoiceGenerator = () => {
               id="buyerState"
               value={buyerDetails.state}
               onChange={(e) => setBuyerDetails({ ...buyerDetails, state: e.target.value })}
-              placeholder="Enter state"
+              placeholder="Enter state (e.g., gujarat or GUJARAT)"
             />
           </div>
           <div>
@@ -448,6 +505,7 @@ const InvoiceGenerator = () => {
             const subtotal = calculateTotal();
             const tax = calculateTax();
             const grandTotal = subtotal + tax.total;
+            const isSameState = sellerDetails.state.toLowerCase() === buyerDetails.state.toLowerCase();
 
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -480,7 +538,7 @@ const InvoiceGenerator = () => {
                       Total: ₹{grandTotal.toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
-                      {sellerDetails.state === buyerDetails.state 
+                      {isSameState 
                         ? 'Same State (CGST + SGST)' 
                         : 'Different State (IGST)'}
                     </div>
@@ -504,17 +562,17 @@ const InvoiceGenerator = () => {
               id="googleSheetsUrl"
               value={googleSheetsUrl}
               onChange={(e) => setGoogleSheetsUrl(e.target.value)}
-              placeholder="Enter Google Sheets URL"
+              placeholder="https://docs.google.com/spreadsheets/d/..."
             />
           </div>
           <div>
-            <Label htmlFor="driveApiKey">Google Drive API Key</Label>
+            <Label htmlFor="driveApiKey">Google Sheets API Key</Label>
             <Input
               id="driveApiKey"
               type="password"
               value={driveApiKey}
               onChange={(e) => setDriveApiKey(e.target.value)}
-              placeholder="Enter Drive API key"
+              placeholder="Enter Google Sheets API key"
             />
           </div>
         </CardContent>
