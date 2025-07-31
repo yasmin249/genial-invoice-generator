@@ -1,6 +1,8 @@
 
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+// import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+
 import { InvoiceItem, SellerDetails, BuyerDetails, TaxCalculation } from '@/types/invoice';
 import { calculateTotal } from './invoiceCalculations';
 
@@ -67,13 +69,14 @@ export const generateInvoicePDF = (
     item.amount.toFixed(2)
   ]);
 
-  doc.autoTable({
-    startY: 110,
-    head: [['Sr. no.', 'Particulars', 'HSN', 'Qty', 'Rate', 'Amount']],
-    body: tableData,
-    theme: 'grid',
-    headStyles: { fillColor: [240, 240, 240] }
-  });
+  autoTable(doc, {
+  startY: 110,
+  head: [['Sr. no.', 'Particulars', 'HSN', 'Qty', 'Rate', 'Amount']],
+  body: tableData,
+  theme: 'grid',
+  headStyles: { fillColor: [240, 240, 240] }
+});
+
 
   const finalY = (doc as any).lastAutoTable.finalY || 150;
 
